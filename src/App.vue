@@ -2,18 +2,36 @@
 import Button from 'primevue/button'
 import FileUpload, { type FileUploadSelectEvent } from 'primevue/fileupload'
 import { ref, computed } from 'vue'
+import { convert as convertJson } from '@/base/convert'
 
 const fileupload = ref<typeof FileUpload>()
 const files = ref(null)
-function onUpload() {}
+const plist = ref('')
 function onFileSelect(e: FileUploadSelectEvent) {
   files.value = e.files
   console.log(e.files)
 }
-function upload() {}
 
+const plistFile = ref()
+const filename = ref('')
 const canConvert = computed(() => files.value !== null)
-function convert() {}
+function convert() {
+  const file: File = files.value![0]
+  const reader = new FileReader()
+  reader.readAsText(file, 'utf8')
+  const basename = file.name.replace(/\..+$/, '')
+  filename.value = `${basename}.plist`
+  reader.onload = (ev) => {
+    const str = reader.result as string
+    const plistStr = convertJson(str, file.name)
+    plist.value = plistStr
+    const blob = new File([plistStr], filename.value, { type: 'application/plist' })
+    const objUrl = URL.createObjectURL(blob)
+    plistFile.value = objUrl
+  }
+}
+function download() {}
+const canDownload = computed(() => plistFile.value !== undefined)
 </script>
 
 <template>
@@ -24,19 +42,25 @@ function convert() {}
   </header>
 
   <main>
-    <Upload />
     <FileUpload
       ref="fileupload"
       mode="basic"
       name="demo[]"
       url="/api/upload"
-      accept="image/*"
+      accept=".json"
       :maxFileSize="1000000"
       @select="onFileSelect"
-      @upload="onUpload"
     />
-    <Button label="Upload" @click="upload" severity="secondary" />
     <Button label="Convert" @click="convert" severity="primary" :disabled="!canConvert" />
+    <a :href="plistFile" :disabled="!canDownload" :download="filename">
+      <Button label="Download" @click="download" severity="contrast" :disabled="!canDownload" />
+    </a>
+    <div>
+      <h3>plist converted</h3>
+      <code v-if="plist !== ''">
+        <pre>{{ plist }}</pre>
+      </code>
+    </div>
   </main>
 </template>
 
