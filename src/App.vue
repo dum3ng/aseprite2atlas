@@ -15,6 +15,7 @@ function onFileSelect(e: FileUploadSelectEvent) {
 const plistFile = ref()
 const filename = ref('')
 const canConvert = computed(() => files.value !== null)
+
 function convert() {
   const file: File = files.value![0]
   const reader = new FileReader()

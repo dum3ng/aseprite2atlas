@@ -13,6 +13,11 @@ export interface AspriteSpriteFrame {
   }
   meta: {
     size: { w: number; h: number }
+    slices: {
+      name: string
+      color: string
+      keys: { frame: number; bounds: { x: number; y: number; w: number; h: number } }[]
+    }[]
   }
 }
 
@@ -73,13 +78,23 @@ function obj2plist(obj: any) {
 }
 
 export function json2plist(json: object) {
-  return `
-<?xml version="1.0" encoding="UTF-8"?>
+  return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
   ${obj2plist(json)}
 </plist>
 `
+}
+
+function getFrame(data: AspriteSpriteFrame, frame: number) {
+  const reg = new RegExp(`${frame}$`)
+  for (const f in data.frames) {
+    if (f.match(reg)) return data.frames[f]
+  }
+}
+
+function getTextureName(filename: string) {
+  return filename.replace(/\..+$/, '.png')
 }
 
 export function convert(str: string, filename: string) {
@@ -96,9 +111,11 @@ export function convert(str: string, filename: string) {
       premultiplyAlpha: false
     }
   }
+
+  const tName = getTextureName(filename)
   data.metadata.size = `{${json.meta.size.w}, ${json.meta.size.h}}`
-  data.metadata.textureFileName = filename
-  data.metadata.realTextureFileName = filename
+  data.metadata.textureFileName = tName
+  data.metadata.realTextureFileName = tName
   data.metadata.format = 3
   data.metadata.pixelFormat = `RGBA8888`
   data.metadata.premultiplyAlpha = false
@@ -112,6 +129,24 @@ export function convert(str: string, filename: string) {
       spriteSourceSize: `{${value.spriteSourceSize.w}, ${value.spriteSourceSize.h}}`,
       textureRect: `{{${frame.x}, ${frame.y}}, {${frame.w}, ${frame.h}}}`,
       textureRotated: value.rotated
+    }
+  }
+
+  for (const i in json.meta.slices) {
+    const slice = json.meta.slices[i]
+    for (const key of slice.keys) {
+      // get the coresponding frame info
+      const frame = getFrame(json, key.frame)
+      const start = frame?.spriteSourceSize!
+      const sliceName = `${slice.name}_${key.frame}`
+      const bound = key.bounds
+      data.frames[sliceName] = {
+        spriteSize: `{${bound.w}, ${bound.h}}`,
+        spriteOffset: `{0, 0}`,
+        spriteSourceSize: `{${bound.w}, ${bound.h}}`,
+        textureRect: `{{${bound.x - start.x} , ${bound.y - start.y}}, { ${bound.w}, ${bound.h} }}`,
+        textureRotated: false
+      }
     }
   }
   const plist = json2plist(data)
